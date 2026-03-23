@@ -1,0 +1,54 @@
+{
+  "name": "n8n-nodes-ordify",
+  "version": "0.1.0",
+  "description": "n8n community node for Ordify A2A and Jobs APIs",
+  "license": "MIT",
+  "author": "Ordify",
+  "homepage": "https://ordify.ai",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ordifyai/n8n-nodes-ordify.git"
+  },
+  "keywords": [
+    "n8n-community-node-package",
+    "n8n",
+    "ordify",
+    "automation",
+    "a2a"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc -w",
+    "lint": "eslint src --ext .ts",
+    "prepublishOnly": "npm run build"
+  },
+  "engines": {
+    "node": ">=18.10",
+    "pnpm": ">=8"
+  },
+  "n8n": {
+    "n8nNodesApiVersion": 1,
+    "credentials": [
+      "dist/credentials/OrdifyApi.credentials.js"
+    ],
+    "nodes": [
+      "dist/Ordify.node.js"
+    ]
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.30",
+    "@typescript-eslint/eslint-plugin": "^7.18.0",
+    "@typescript-eslint/parser": "^7.18.0",
+    "eslint": "^8.57.0",
+    "n8n-workflow": "^1.76.0",
+    "typescript": "^5.4.5"
+  },
+  "peerDependencies": {
+    "n8n-workflow": "*"
+  }
+}
