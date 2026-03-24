@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-ordify",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "n8n community node for Ordify A2A and Jobs APIs",
   "license": "MIT",
   "author": "Ordify",
