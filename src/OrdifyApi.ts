@@ -5,6 +5,16 @@ export interface OrdifyCredentials {
 	apiKey: string;
 }
 
+export interface OrdifyChatPayload extends IDataObject {
+	message: string;
+	sessionId?: string;
+	context?: string;
+	use_thinking?: boolean;
+	use_grounding?: boolean;
+	rag_enabled?: boolean;
+	agent_mode?: boolean;
+}
+
 export class OrdifyApiClient {
 	constructor(
 		private readonly ctx: IExecuteFunctions,
@@ -31,7 +41,46 @@ export class OrdifyApiClient {
 			return (await this.ctx.helpers.httpRequest(options)) as T;
 		} catch (error: any) {
 			const statusCode = error?.response?.statusCode ?? error?.statusCode ?? 'unknown';
-			const detail = error?.response?.body?.detail ?? error?.message ?? 'Request failed';
+			const responseBody = error?.response?.body;
+			const detail =
+				responseBody?.detail ??
+				responseBody?.message ??
+				(typeof responseBody === 'string' ? responseBody : undefined) ??
+				error?.message ??
+				'Request failed';
+			throw new Error(`Ordify API ${method} ${path} failed (${statusCode}): ${detail}`);
+		}
+	}
+
+	private async requestRaw(method: 'GET' | 'POST', path: string, body?: IDataObject): Promise<string> {
+		const url = `${this.creds.baseUrl.replace(/\/+$/, '')}${path}`;
+		const options: IHttpRequestOptions = {
+			method,
+			url,
+			headers: {
+				'api-key': this.creds.apiKey,
+				'content-type': 'application/json',
+			},
+			json: false,
+			returnFullResponse: false,
+		};
+
+		if (body && method === 'POST') {
+			options.body = JSON.stringify(body);
+		}
+
+		try {
+			const raw = await this.ctx.helpers.httpRequest(options);
+			return typeof raw === 'string' ? raw : JSON.stringify(raw);
+		} catch (error: any) {
+			const statusCode = error?.response?.statusCode ?? error?.statusCode ?? 'unknown';
+			const responseBody = error?.response?.body;
+			const detail =
+				responseBody?.detail ??
+				responseBody?.message ??
+				(typeof responseBody === 'string' ? responseBody : undefined) ??
+				error?.message ??
+				'Request failed';
 			throw new Error(`Ordify API ${method} ${path} failed (${statusCode}): ${detail}`);
 		}
 	}
@@ -80,5 +129,53 @@ export class OrdifyApiClient {
 
 	async getJobResult(jobId: string): Promise<IDataObject> {
 		return await this.request<IDataObject>('GET', `/jobs/${encodeURIComponent(jobId)}/result`);
+	}
+
+	async chat(payload: OrdifyChatPayload): Promise<IDataObject> {
+		const raw = await this.requestRaw('POST', '/chat', payload);
+		const parsed = this.parseSseText(raw);
+		return {
+			mode: 'sse',
+			text: parsed.text,
+			chunk_count: parsed.chunks.length,
+			chunks: parsed.chunks,
+			raw,
+		};
+	}
+
+	private parseSseText(raw: string): { text: string; chunks: string[] } {
+		const chunks: string[] = [];
+		let text = '';
+		for (const line of raw.split('\n')) {
+			const trimmed = line.trim();
+			if (!trimmed.startsWith('data:')) continue;
+			const payload = trimmed.slice(5).trim();
+			if (!payload || payload === '[DONE]') continue;
+			try {
+				const parsed = JSON.parse(payload);
+				const chunkText = parsed?.text;
+				if (typeof chunkText === 'string' && chunkText.length > 0) {
+					chunks.push(chunkText);
+					text += chunkText;
+				}
+			} catch {
+				// Ignore non-JSON SSE lines
+			}
+		}
+		return { text, chunks };
+	}
+
+	static getNormalizedJobStatus(statusPayload: IDataObject): string {
+		const candidate = (
+			statusPayload.status ??
+			statusPayload.state ??
+			(statusPayload as IDataObject)?.status?.toString()
+		);
+		if (!candidate) return 'unknown';
+		return String(candidate).toLowerCase();
+	}
+
+	static isTerminalStatus(status: string): boolean {
+		return ['complete', 'completed', 'failed', 'error', 'cancelled', 'canceled'].includes(status);
 	}
 }

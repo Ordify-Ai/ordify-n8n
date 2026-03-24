@@ -7,7 +7,10 @@ import {
 	type INodeType,
 	type INodeTypeDescription,
 } from 'n8n-workflow';
-import { OrdifyApiClient } from './OrdifyApi';
+import { OrdifyApiClient, type OrdifyChatPayload } from './OrdifyApi';
+
+const sleep = async (ms: number): Promise<void> =>
+	await new Promise((resolve) => setTimeout(resolve, ms));
 
 const operationFields: INodeProperties[] = [
 	{
@@ -17,6 +20,12 @@ const operationFields: INodeProperties[] = [
 		noDataExpression: true,
 		default: 'listAvailableCrews',
 		options: [
+			{
+				name: 'Chat',
+				value: 'chat',
+				description: 'Chat with Ordify via POST /chat',
+				action: 'Send a chat message',
+			},
 			{
 				name: 'List Available Crews',
 				value: 'listAvailableCrews',
@@ -48,6 +57,80 @@ const operationFields: INodeProperties[] = [
 				action: 'Get a job result',
 			},
 		],
+	},
+	{
+		displayName: 'Chat Message',
+		name: 'chatMessage',
+		type: 'string',
+		typeOptions: {
+			rows: 4,
+		},
+		default: '',
+		required: true,
+		displayOptions: {
+			show: {
+				operation: ['chat'],
+			},
+		},
+	},
+	{
+		displayName: 'Context',
+		name: 'chatContext',
+		type: 'string',
+		typeOptions: {
+			rows: 3,
+		},
+		default: '',
+		description: 'Optional additional context',
+		displayOptions: {
+			show: {
+				operation: ['chat'],
+			},
+		},
+	},
+	{
+		displayName: 'Use Thinking',
+		name: 'chatUseThinking',
+		type: 'boolean',
+		default: false,
+		displayOptions: {
+			show: {
+				operation: ['chat'],
+			},
+		},
+	},
+	{
+		displayName: 'Use Grounding',
+		name: 'chatUseGrounding',
+		type: 'boolean',
+		default: false,
+		displayOptions: {
+			show: {
+				operation: ['chat'],
+			},
+		},
+	},
+	{
+		displayName: 'RAG Enabled',
+		name: 'chatRagEnabled',
+		type: 'boolean',
+		default: false,
+		displayOptions: {
+			show: {
+				operation: ['chat'],
+			},
+		},
+	},
+	{
+		displayName: 'Agent Mode',
+		name: 'chatAgentMode',
+		type: 'boolean',
+		default: false,
+		displayOptions: {
+			show: {
+				operation: ['chat'],
+			},
+		},
 	},
 	{
 		displayName: 'Crew ID',
@@ -89,14 +172,61 @@ const operationFields: INodeProperties[] = [
 		},
 	},
 	{
-		displayName: 'Session ID',
-		name: 'sessionId',
-		type: 'string',
-		default: '',
-		description: 'Optional session ID attached to execution metadata',
+		displayName: 'Execution Mode',
+		name: 'executionMode',
+		type: 'options',
+		default: 'async',
+		options: [
+			{
+				name: 'Async (Return Job ID Immediately)',
+				value: 'async',
+				description: 'Returns execute response without waiting for completion',
+			},
+			{
+				name: 'Wait For Completion',
+				value: 'wait',
+				description: 'Poll job status until complete, failed, cancelled, or timeout',
+			},
+		],
 		displayOptions: {
 			show: {
 				operation: ['executeCrew'],
+			},
+		},
+	},
+	{
+		displayName: 'Poll Interval Seconds',
+		name: 'pollIntervalSeconds',
+		type: 'number',
+		typeOptions: {
+			minValue: 1,
+			maxValue: 60,
+			numberStepSize: 1,
+		},
+		default: 5,
+		description: 'Seconds between status checks in wait mode',
+		displayOptions: {
+			show: {
+				operation: ['executeCrew'],
+				executionMode: ['wait'],
+			},
+		},
+	},
+	{
+		displayName: 'Timeout Seconds',
+		name: 'timeoutSeconds',
+		type: 'number',
+		typeOptions: {
+			minValue: 5,
+			maxValue: 3600,
+			numberStepSize: 1,
+		},
+		default: 300,
+		description: 'Maximum time to wait for terminal status in wait mode',
+		displayOptions: {
+			show: {
+				operation: ['executeCrew'],
+				executionMode: ['wait'],
 			},
 		},
 	},
@@ -118,6 +248,7 @@ export class Ordify implements INodeType {
 	description: INodeTypeDescription = {
 		displayName: 'Ordify',
 		name: 'ordify',
+		icon: 'file:Ordify_icon_transparent.png',
 		group: ['transform'],
 		version: 1,
 		description: 'Run Ordify jobs through A2A and Jobs APIs',
@@ -149,24 +280,140 @@ export class Ordify implements INodeType {
 			try {
 				const operation = this.getNodeParameter('operation', i) as string;
 				let response: IDataObject | IDataObject[];
+				let normalized: IDataObject;
 
-				if (operation === 'listAvailableCrews') {
+				if (operation === 'chat') {
+					const message = this.getNodeParameter('chatMessage', i) as string;
+					const context = this.getNodeParameter('chatContext', i, '') as string;
+					const useThinking = this.getNodeParameter('chatUseThinking', i, false) as boolean;
+					const useGrounding = this.getNodeParameter('chatUseGrounding', i, false) as boolean;
+					const ragEnabled = this.getNodeParameter('chatRagEnabled', i, false) as boolean;
+					const agentMode = this.getNodeParameter('chatAgentMode', i, false) as boolean;
+					if (!message.trim()) {
+						throw new NodeOperationError(this.getNode(), 'Chat Message is required', {
+							itemIndex: i,
+						});
+					}
+					const payload: OrdifyChatPayload = {
+						message,
+						use_thinking: useThinking,
+						use_grounding: useGrounding,
+						rag_enabled: ragEnabled,
+						agent_mode: agentMode,
+					};
+					if (context.trim()) payload.context = context;
+
+					response = await client.chat(payload);
+					normalized = {
+						operation,
+						...response,
+					};
+				} else if (operation === 'listAvailableCrews') {
 					response = await client.listAvailableCrews();
+					normalized = {
+						operation,
+						count: Array.isArray(response) ? response.length : 0,
+						items: response as IDataObject[],
+					};
 				} else if (operation === 'getCrewSchema') {
 					const crewId = this.getNodeParameter('crewId', i) as string;
 					response = await client.getCrewSchema(crewId);
+					normalized = {
+						operation,
+						crew_id: crewId,
+						...response,
+					};
 				} else if (operation === 'executeCrew') {
 					const crewId = this.getNodeParameter('crewId', i) as string;
 					const message = this.getNodeParameter('message', i) as string;
 					const inputData = this.getNodeParameter('inputData', i, {}) as IDataObject;
-					const sessionId = this.getNodeParameter('sessionId', i, '') as string;
-					response = await client.executeCrew(crewId, message, inputData, sessionId || undefined);
+					const executionMode = this.getNodeParameter('executionMode', i, 'async') as string;
+
+					if (!message.trim()) {
+						throw new NodeOperationError(this.getNode(), 'Message is required for Execute Crew', {
+							itemIndex: i,
+						});
+					}
+					if (typeof inputData !== 'object' || Array.isArray(inputData)) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'Input Data JSON must be a JSON object (not array/string)',
+							{ itemIndex: i },
+						);
+					}
+
+					response = await client.executeCrew(crewId, message, inputData, undefined);
+					const jobId = String((response as IDataObject).job_id ?? '');
+					if (!jobId) {
+						throw new NodeOperationError(
+							this.getNode(),
+							'Execute response missing job_id. Cannot continue.',
+							{ itemIndex: i },
+						);
+					}
+
+					if (executionMode === 'wait') {
+						const pollIntervalSeconds = Number(this.getNodeParameter('pollIntervalSeconds', i, 5));
+						const timeoutSeconds = Number(this.getNodeParameter('timeoutSeconds', i, 300));
+						const start = Date.now();
+						let statusPayload = await client.getJobStatus(jobId);
+						let normalizedStatus = OrdifyApiClient.getNormalizedJobStatus(statusPayload);
+
+						while (!OrdifyApiClient.isTerminalStatus(normalizedStatus)) {
+							const elapsedSeconds = (Date.now() - start) / 1000;
+							if (elapsedSeconds >= timeoutSeconds) {
+								throw new NodeOperationError(
+									this.getNode(),
+									`Timed out waiting for job ${jobId} after ${timeoutSeconds}s. Last status: ${normalizedStatus}`,
+									{ itemIndex: i },
+								);
+							}
+
+							await sleep(pollIntervalSeconds * 1000);
+							statusPayload = await client.getJobStatus(jobId);
+							normalizedStatus = OrdifyApiClient.getNormalizedJobStatus(statusPayload);
+						}
+
+						let resultPayload: IDataObject | null = null;
+						if (normalizedStatus === 'complete' || normalizedStatus === 'completed') {
+							resultPayload = await client.getJobResult(jobId);
+						}
+
+						normalized = {
+							operation,
+							execution_mode: 'wait',
+							crew_id: crewId,
+							job_id: jobId,
+							final_status: normalizedStatus,
+							execute_response: response,
+							status_response: statusPayload,
+							result_response: resultPayload,
+						};
+					} else {
+						normalized = {
+							operation,
+							execution_mode: 'async',
+							crew_id: crewId,
+							...response,
+						};
+					}
 				} else if (operation === 'getJobStatus') {
 					const jobId = this.getNodeParameter('jobId', i) as string;
 					response = await client.getJobStatus(jobId);
+					normalized = {
+						operation,
+						job_id: jobId,
+						normalized_status: OrdifyApiClient.getNormalizedJobStatus(response as IDataObject),
+						...response,
+					};
 				} else if (operation === 'getJobResult') {
 					const jobId = this.getNodeParameter('jobId', i) as string;
 					response = await client.getJobResult(jobId);
+					normalized = {
+						operation,
+						job_id: jobId,
+						...response,
+					};
 				} else {
 					throw new NodeOperationError(this.getNode(), `Unsupported operation: ${operation}`, {
 						itemIndex: i,
@@ -174,7 +421,7 @@ export class Ordify implements INodeType {
 				}
 
 				results.push({
-					json: Array.isArray(response) ? { items: response } : response,
+					json: normalized,
 				});
 			} catch (error: any) {
 				if (this.continueOnFail()) {

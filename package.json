@@ -22,7 +22,7 @@
     "dist"
   ],
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cp src/Ordify_icon_transparent.png dist/Ordify_icon_transparent.png",
     "dev": "tsc -w",
     "lint": "eslint src --ext .ts",
     "prepublishOnly": "npm run build"
