@@ -7,7 +7,7 @@
   "homepage": "https://ordify.ai",
   "repository": {
     "type": "git",
-    "url": "https://github.com/ordifyai/n8n-nodes-ordify.git"
+    "url": "https://github.com/Ordify-Ai/ordify-n8n.git"
   },
   "keywords": [
     "n8n-community-node-package",
