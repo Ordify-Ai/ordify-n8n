@@ -95,26 +95,36 @@ export class OrdifyApiClient {
 
 	async executeCrew(
 		crewId: string,
-		message: string,
+		message: string | undefined,
 		data: IDataObject | undefined,
 		sessionId?: string,
 	): Promise<IDataObject> {
-		const payload: IDataObject = {
-			role: 'user',
-			parts: [
-				{
-					kind: 'text',
-					text: message,
-				},
-			],
-		};
+		const parts: IDataObject[] = [];
+		if (typeof message === 'string' && message.trim().length > 0) {
+			parts.push({
+				kind: 'text',
+				text: message,
+			});
+		}
 
 		if (data && Object.keys(data).length > 0) {
-			(payload.parts as IDataObject[]).push({
+			parts.push({
 				kind: 'data',
 				data,
 			});
 		}
+
+		if (parts.length === 0) {
+			parts.push({
+				kind: 'text',
+				text: 'Run this crew task with default settings.',
+			});
+		}
+
+		const payload: IDataObject = {
+			role: 'user',
+			parts,
+		};
 
 		if (sessionId) {
 			payload.metadata = { session_id: sessionId };
@@ -136,6 +146,23 @@ export class OrdifyApiClient {
 		const parsed = this.parseSseText(raw);
 		return {
 			mode: 'sse',
+			text: parsed.text,
+			chunk_count: parsed.chunks.length,
+			chunks: parsed.chunks,
+			raw,
+		};
+	}
+
+	async listAvailableAgents(): Promise<IDataObject> {
+		return await this.request<IDataObject>('GET', '/chat/agents');
+	}
+
+	async chatWithAgent(agentId: string, payload: OrdifyChatPayload): Promise<IDataObject> {
+		const raw = await this.requestRaw('POST', `/chat/agents/${encodeURIComponent(agentId)}`, payload);
+		const parsed = this.parseSseText(raw);
+		return {
+			mode: 'sse',
+			agent_id: agentId,
 			text: parsed.text,
 			chunk_count: parsed.chunks.length,
 			chunks: parsed.chunks,

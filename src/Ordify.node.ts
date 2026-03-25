@@ -27,6 +27,12 @@ const operationFields: INodeProperties[] = [
 				action: 'Send a chat message',
 			},
 			{
+				name: 'List Available Agents',
+				value: 'listAvailableAgents',
+				description: 'Get available ADK agents from /chat/agents',
+				action: 'List available agents',
+			},
+			{
 				name: 'List Available Crews',
 				value: 'listAvailableCrews',
 				description: 'Get available crews from /a2a/available',
@@ -70,6 +76,43 @@ const operationFields: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				operation: ['chat'],
+			},
+		},
+	},
+	{
+		displayName: 'Chat Mode',
+		name: 'chatMode',
+		type: 'options',
+		default: 'general',
+		options: [
+			{
+				name: 'General Chat',
+				value: 'general',
+				description: 'Use POST /chat',
+			},
+			{
+				name: 'Specific Agent Chat',
+				value: 'agent',
+				description: 'Use POST /chat/agents/{agent_id}',
+			},
+		],
+		displayOptions: {
+			show: {
+				operation: ['chat'],
+			},
+		},
+	},
+	{
+		displayName: 'Agent ID',
+		name: 'chatAgentId',
+		type: 'string',
+		default: '',
+		required: true,
+		description: 'Agent ID from List Available Agents output',
+		displayOptions: {
+			show: {
+				operation: ['chat'],
+				chatMode: ['agent'],
 			},
 		},
 	},
@@ -152,7 +195,8 @@ const operationFields: INodeProperties[] = [
 			rows: 4,
 		},
 		default: '',
-		required: true,
+		required: false,
+		description: 'Optional for schema-driven jobs when using Input Data JSON',
 		displayOptions: {
 			show: {
 				operation: ['executeCrew'],
@@ -284,6 +328,7 @@ export class Ordify implements INodeType {
 
 				if (operation === 'chat') {
 					const message = this.getNodeParameter('chatMessage', i) as string;
+					const chatMode = this.getNodeParameter('chatMode', i, 'general') as string;
 					const context = this.getNodeParameter('chatContext', i, '') as string;
 					const useThinking = this.getNodeParameter('chatUseThinking', i, false) as boolean;
 					const useGrounding = this.getNodeParameter('chatUseGrounding', i, false) as boolean;
@@ -303,9 +348,26 @@ export class Ordify implements INodeType {
 					};
 					if (context.trim()) payload.context = context;
 
-					response = await client.chat(payload);
+					if (chatMode === 'agent') {
+						const agentId = this.getNodeParameter('chatAgentId', i) as string;
+						response = await client.chatWithAgent(agentId, payload);
+					} else {
+						response = await client.chat(payload);
+					}
 					normalized = {
 						operation,
+						chat_mode: chatMode,
+						...response,
+					};
+				} else if (operation === 'listAvailableAgents') {
+					response = await client.listAvailableAgents();
+					const agents = Array.isArray((response as IDataObject).agents)
+						? ((response as IDataObject).agents as IDataObject[])
+						: [];
+					normalized = {
+						operation,
+						total: (response as IDataObject).total ?? agents.length,
+						agents,
 						...response,
 					};
 				} else if (operation === 'listAvailableCrews') {
@@ -326,23 +388,39 @@ export class Ordify implements INodeType {
 				} else if (operation === 'executeCrew') {
 					const crewId = this.getNodeParameter('crewId', i) as string;
 					const message = this.getNodeParameter('message', i) as string;
-					const inputData = this.getNodeParameter('inputData', i, {}) as IDataObject;
+					const rawInputData = this.getNodeParameter('inputData', i, {}) as IDataObject | string;
 					const executionMode = this.getNodeParameter('executionMode', i, 'async') as string;
+					let inputData: IDataObject = {};
 
-					if (!message.trim()) {
-						throw new NodeOperationError(this.getNode(), 'Message is required for Execute Crew', {
-							itemIndex: i,
-						});
-					}
-					if (typeof inputData !== 'object' || Array.isArray(inputData)) {
+					const messageText = message.trim();
+					if (typeof rawInputData === 'string') {
+						const trimmed = rawInputData.trim();
+						if (trimmed.length > 0) {
+							try {
+								const parsed = JSON.parse(trimmed);
+								if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
+									throw new Error('parsed value is not an object');
+								}
+								inputData = parsed as IDataObject;
+							} catch {
+								throw new NodeOperationError(
+									this.getNode(),
+									'Input Data JSON must be a valid JSON object',
+									{ itemIndex: i },
+								);
+							}
+						}
+					} else if (rawInputData && typeof rawInputData === 'object' && !Array.isArray(rawInputData)) {
+						inputData = rawInputData;
+					} else if (Array.isArray(rawInputData)) {
 						throw new NodeOperationError(
 							this.getNode(),
-							'Input Data JSON must be a JSON object (not array/string)',
+							'Input Data JSON must be a JSON object (arrays are not supported)',
 							{ itemIndex: i },
 						);
 					}
 
-					response = await client.executeCrew(crewId, message, inputData, undefined);
+					response = await client.executeCrew(crewId, messageText || undefined, inputData, undefined);
 					const jobId = String((response as IDataObject).job_id ?? '');
 					if (!jobId) {
 						throw new NodeOperationError(
