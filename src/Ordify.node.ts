@@ -7,11 +7,12 @@ import {
 	type INodeType,
 	type INodeTypeDescription,
 } from 'n8n-workflow';
-import { setTimeout as delay } from 'node:timers/promises';
 import { OrdifyApiClient, type OrdifyChatPayload } from './OrdifyApi';
 
 const sleep = async (ms: number): Promise<void> => {
-	await delay(ms);
+	await new Promise<void>((resolve) => {
+		globalThis.setTimeout(resolve, ms);
+	});
 };
 
 const operationFields: INodeProperties[] = [
