@@ -3,7 +3,11 @@
   "version": "0.1.6",
   "description": "n8n community node for Ordify A2A and Jobs APIs",
   "license": "MIT",
-  "author": "Ordify",
+  "author": {
+    "name": "Denys",
+    "email": "denys@ordify.ai",
+    "url": "https://ordify.ai"
+  },
   "homepage": "https://ordify.ai",
   "repository": {
     "type": "git",
