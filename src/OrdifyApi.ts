@@ -193,16 +193,62 @@ export class OrdifyApiClient {
 	}
 
 	static getNormalizedJobStatus(statusPayload: IDataObject): string {
-		const candidate = (
-			statusPayload.status ??
-			statusPayload.state ??
-			(statusPayload as IDataObject)?.status?.toString()
-		);
-		if (!candidate) return 'unknown';
-		return String(candidate).toLowerCase();
+		const asObj = statusPayload as IDataObject;
+		const statusValue = asObj.status;
+		const stateValue = asObj.state;
+
+		// Common direct string forms: { status: "running" } or { state: "complete" }
+		if (typeof statusValue === 'string' && statusValue.trim()) {
+			return statusValue.trim().toLowerCase();
+		}
+		if (typeof stateValue === 'string' && stateValue.trim()) {
+			return stateValue.trim().toLowerCase();
+		}
+
+		// Nested forms: { status: { state: "working" } } or { state: { value: "complete" } }
+		if (statusValue && typeof statusValue === 'object') {
+			const nested = statusValue as IDataObject;
+			const nestedState = nested.state;
+			const nestedValue = nested.value;
+			if (typeof nestedState === 'string' && nestedState.trim()) {
+				return nestedState.trim().toLowerCase();
+			}
+			if (typeof nestedValue === 'string' && nestedValue.trim()) {
+				return nestedValue.trim().toLowerCase();
+			}
+		}
+		if (stateValue && typeof stateValue === 'object') {
+			const nested = stateValue as IDataObject;
+			const nestedState = nested.state;
+			const nestedValue = nested.value;
+			if (typeof nestedState === 'string' && nestedState.trim()) {
+				return nestedState.trim().toLowerCase();
+			}
+			if (typeof nestedValue === 'string' && nestedValue.trim()) {
+				return nestedValue.trim().toLowerCase();
+			}
+		}
+
+		// Additional hints from some payload shapes
+		if (typeof asObj.final_status === 'string' && asObj.final_status.trim()) {
+			return asObj.final_status.trim().toLowerCase();
+		}
+
+		return 'unknown';
 	}
 
 	static isTerminalStatus(status: string): boolean {
-		return ['complete', 'completed', 'failed', 'error', 'cancelled', 'canceled'].includes(status);
+		return [
+			'complete',
+			'completed',
+			'succeeded',
+			'success',
+			'done',
+			'finished',
+			'failed',
+			'error',
+			'cancelled',
+			'canceled',
+		].includes(status);
 	}
 }
