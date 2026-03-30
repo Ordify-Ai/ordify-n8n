@@ -1,4 +1,5 @@
 node_modules
-dist
+# dist/ is tracked so Creator Portal / GitHub verification can resolve
+# package.json paths: dist/credentials/*.js and dist/*.node.js
 *.log
 *.tgz
