@@ -9,12 +9,6 @@ import {
 } from 'n8n-workflow';
 import { OrdifyApiClient, type OrdifyChatPayload } from './OrdifyApi';
 
-const sleep = async (ms: number): Promise<void> => {
-	await new Promise<void>((resolve) => {
-		globalThis.setTimeout(resolve, ms);
-	});
-};
-
 const operationFields: INodeProperties[] = [
 	{
 		displayName: 'Operation',
@@ -445,21 +439,20 @@ export class Ordify implements INodeType {
 					if (executionMode === 'wait') {
 						const pollIntervalSeconds = Number(this.getNodeParameter('pollIntervalSeconds', i, 5));
 						const timeoutSeconds = Number(this.getNodeParameter('timeoutSeconds', i, 300));
-						const start = Date.now();
+						const maxPolls = Math.max(1, Math.ceil(timeoutSeconds / Math.max(1, pollIntervalSeconds)));
+						let polls = 0;
 						let statusPayload = await client.getJobStatus(jobId);
 						let normalizedStatus = OrdifyApiClient.getNormalizedJobStatus(statusPayload);
 
 						while (!OrdifyApiClient.isTerminalStatus(normalizedStatus)) {
-							const elapsedSeconds = (Date.now() - start) / 1000;
-							if (elapsedSeconds >= timeoutSeconds) {
+							polls += 1;
+							if (polls >= maxPolls) {
 								throw new NodeOperationError(
 									this.getNode(),
 									`Timed out waiting for job ${jobId} after ${timeoutSeconds}s. Last status: ${normalizedStatus}`,
 									{ itemIndex: i },
 								);
 							}
-
-							await sleep(pollIntervalSeconds * 1000);
 							statusPayload = await client.getJobStatus(jobId);
 							normalizedStatus = OrdifyApiClient.getNormalizedJobStatus(statusPayload);
 						}
