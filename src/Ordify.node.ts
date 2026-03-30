@@ -391,11 +391,13 @@ export class Ordify implements INodeType {
 					const rawInputData = this.getNodeParameter('inputData', i, {}) as IDataObject | string;
 					const executionMode = this.getNodeParameter('executionMode', i, 'async') as string;
 					let inputData: IDataObject = {};
+					let inputDataProvided = false;
 
 					const messageText = message.trim();
 					if (typeof rawInputData === 'string') {
 						const trimmed = rawInputData.trim();
 						if (trimmed.length > 0) {
+							inputDataProvided = true;
 							try {
 								const parsed = JSON.parse(trimmed);
 								if (!parsed || typeof parsed !== 'object' || Array.isArray(parsed)) {
@@ -412,6 +414,7 @@ export class Ordify implements INodeType {
 						}
 					} else if (rawInputData && typeof rawInputData === 'object' && !Array.isArray(rawInputData)) {
 						inputData = rawInputData;
+						inputDataProvided = true;
 					} else if (Array.isArray(rawInputData)) {
 						throw new NodeOperationError(
 							this.getNode(),
@@ -420,7 +423,13 @@ export class Ordify implements INodeType {
 						);
 					}
 
-					response = await client.executeCrew(crewId, messageText || undefined, inputData, undefined);
+					response = await client.executeCrew(
+						crewId,
+						messageText || undefined,
+						inputData,
+						inputDataProvided,
+						undefined,
+					);
 					const jobId = String((response as IDataObject).job_id ?? '');
 					if (!jobId) {
 						throw new NodeOperationError(
@@ -453,7 +462,7 @@ export class Ordify implements INodeType {
 						}
 
 						let resultPayload: IDataObject | null = null;
-						if (normalizedStatus === 'complete' || normalizedStatus === 'completed') {
+						if (OrdifyApiClient.isSuccessfulTerminalStatus(normalizedStatus)) {
 							resultPayload = await client.getJobResult(jobId);
 						}
 

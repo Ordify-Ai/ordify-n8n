@@ -97,6 +97,7 @@ export class OrdifyApiClient {
 		crewId: string,
 		message: string | undefined,
 		data: IDataObject | undefined,
+		includeDataPart = false,
 		sessionId?: string,
 	): Promise<IDataObject> {
 		const parts: IDataObject[] = [];
@@ -107,7 +108,7 @@ export class OrdifyApiClient {
 			});
 		}
 
-		if (data && Object.keys(data).length > 0) {
+		if (data && (Object.keys(data).length > 0 || includeDataPart)) {
 			parts.push({
 				kind: 'data',
 				data,
@@ -115,10 +116,7 @@ export class OrdifyApiClient {
 		}
 
 		if (parts.length === 0) {
-			parts.push({
-				kind: 'text',
-				text: 'Run this crew task with default settings.',
-			});
+			parts.push({ kind: 'data', data: {} });
 		}
 
 		const payload: IDataObject = {
@@ -250,5 +248,9 @@ export class OrdifyApiClient {
 			'cancelled',
 			'canceled',
 		].includes(status);
+	}
+
+	static isSuccessfulTerminalStatus(status: string): boolean {
+		return ['complete', 'completed', 'succeeded', 'success', 'done', 'finished'].includes(status);
 	}
 }
