@@ -1,18 +1,20 @@
 "use strict";
 Object.defineProperty(exports, "__esModule", { value: true });
 exports.OrdifyApi = void 0;
+const shared_1 = require("../utils/shared");
 class OrdifyApi {
     constructor() {
         this.name = 'ordifyApi';
         this.displayName = 'Ordify API';
+        this.icon = 'file:Ordify_icon_transparent.png';
         this.documentationUrl = 'https://ordify.ai';
         this.properties = [
             {
                 displayName: 'Base URL',
                 name: 'baseUrl',
                 type: 'string',
-                default: 'https://r.ordify.ai/',
-                placeholder: 'https://r.ordify.ai/',
+                default: shared_1.ORDIFY_DEFAULT_BASE_URL,
+                placeholder: shared_1.ORDIFY_DEFAULT_BASE_URL,
                 required: true,
                 description: 'Ordify API base URL',
             },

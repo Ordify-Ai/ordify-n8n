@@ -7,7 +7,7 @@
     ],
     "declaration": true,
     "outDir": "dist",
-    "rootDir": "src",
+    "rootDir": ".",
     "strict": true,
     "esModuleInterop": true,
     "moduleResolution": "node",
@@ -16,7 +16,10 @@
     "sourceMap": true
   },
   "include": [
-    "src/**/*.ts"
+    "index.ts",
+    "credentials/**/*.ts",
+    "nodes/**/*.ts",
+    "utils/**/*.ts"
   ],
   "exclude": [
     "node_modules",

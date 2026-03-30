@@ -1,6 +1,6 @@
 {
   "name": "n8n-nodes-ordify",
-  "version": "0.1.13",
+  "version": "0.1.14",
   "description": "n8n community node for Ordify A2A and Jobs APIs",
   "license": "MIT",
   "author": {
@@ -30,9 +30,9 @@
     "LICENSE"
   ],
   "scripts": {
-    "build": "tsc && cp src/Ordify_icon_transparent.png dist/Ordify_icon_transparent.png",
+    "build": "tsc && cp nodes/Ordify/Ordify_icon_transparent.png dist/nodes/Ordify/Ordify_icon_transparent.png && cp credentials/Ordify_icon_transparent.png dist/credentials/Ordify_icon_transparent.png",
     "dev": "tsc -w",
-    "lint": "eslint src --ext .ts",
+    "lint": "eslint credentials nodes utils index.ts --ext .ts",
     "prepublishOnly": "npm run build"
   },
   "engines": {
@@ -45,7 +45,7 @@
       "dist/credentials/OrdifyApi.credentials.js"
     ],
     "nodes": [
-      "dist/Ordify.node.js"
+      "dist/nodes/Ordify/Ordify.node.js"
     ]
   },
   "devDependencies": {

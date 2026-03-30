@@ -195,7 +195,6 @@ export class OrdifyApiClient {
 		const statusValue = asObj.status;
 		const stateValue = asObj.state;
 
-		// Common direct string forms: { status: "running" } or { state: "complete" }
 		if (typeof statusValue === 'string' && statusValue.trim()) {
 			return statusValue.trim().toLowerCase();
 		}
@@ -203,7 +202,6 @@ export class OrdifyApiClient {
 			return stateValue.trim().toLowerCase();
 		}
 
-		// Nested forms: { status: { state: "working" } } or { state: { value: "complete" } }
 		if (statusValue && typeof statusValue === 'object') {
 			const nested = statusValue as IDataObject;
 			const nestedState = nested.state;
@@ -227,7 +225,6 @@ export class OrdifyApiClient {
 			}
 		}
 
-		// Additional hints from some payload shapes
 		if (typeof asObj.final_status === 'string' && asObj.final_status.trim()) {
 			return asObj.final_status.trim().toLowerCase();
 		}

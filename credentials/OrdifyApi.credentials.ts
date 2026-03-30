@@ -1,14 +1,18 @@
-import type {
+import {
 	IAuthenticateGeneric,
 	ICredentialTestRequest,
 	ICredentialType,
 	INodeProperties,
 } from 'n8n-workflow';
 
+import { ORDIFY_DEFAULT_BASE_URL } from '../utils/shared';
+
 export class OrdifyApi implements ICredentialType {
 	name = 'ordifyApi';
 
 	displayName = 'Ordify API';
+
+	icon = 'file:Ordify_icon_transparent.png' as const;
 
 	documentationUrl = 'https://ordify.ai';
 
@@ -17,8 +21,8 @@ export class OrdifyApi implements ICredentialType {
 			displayName: 'Base URL',
 			name: 'baseUrl',
 			type: 'string',
-			default: 'https://r.ordify.ai/',
-			placeholder: 'https://r.ordify.ai/',
+			default: ORDIFY_DEFAULT_BASE_URL,
+			placeholder: ORDIFY_DEFAULT_BASE_URL,
 			required: true,
 			description: 'Ordify API base URL',
 		},

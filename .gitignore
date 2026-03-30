@@ -1,5 +1,10 @@
 node_modules
-# dist/ is tracked so Creator Portal / GitHub verification can resolve
-# package.json paths: dist/credentials/*.js and dist/*.node.js
+.DS_Store
+.tmp
+tmp
+dist
+npm-debug.log*
+yarn.lock
+.vscode/launch.json
 *.log
 *.tgz
