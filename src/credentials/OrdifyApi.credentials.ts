@@ -1,9 +1,16 @@
-import type { ICredentialType, INodeProperties } from 'n8n-workflow';
+import type {
+	IAuthenticateGeneric,
+	ICredentialTestRequest,
+	ICredentialType,
+	INodeProperties,
+} from 'n8n-workflow';
 
 export class OrdifyApi implements ICredentialType {
 	name = 'ordifyApi';
 
 	displayName = 'Ordify API';
+
+	documentationUrl = 'https://ordify.ai';
 
 	properties: INodeProperties[] = [
 		{
@@ -27,4 +34,24 @@ export class OrdifyApi implements ICredentialType {
 			description: 'API key generated from Ordify settings',
 		},
 	];
+
+	authenticate: IAuthenticateGeneric = {
+		type: 'generic',
+		properties: {
+			headers: {
+				'api-key': '={{$credentials.apiKey}}',
+			},
+		},
+	};
+
+	test: ICredentialTestRequest = {
+		request: {
+			baseURL: '={{$credentials.baseUrl}}',
+			url: '/a2a/available',
+			method: 'GET',
+			headers: {
+				'api-key': '={{$credentials.apiKey}}',
+			},
+		},
+	};
 }
