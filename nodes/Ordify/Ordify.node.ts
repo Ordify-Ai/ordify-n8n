@@ -1,4 +1,5 @@
 import {
+	NodeConnectionTypes,
 	NodeOperationError,
 	type IDataObject,
 	type IExecuteFunctions,
@@ -296,8 +297,9 @@ export class Ordify implements INodeType {
 		defaults: {
 			name: 'Ordify',
 		},
-		inputs: ['main'],
-		outputs: ['main'],
+		subtitle: '={{$parameter["operation"]}}',
+		inputs: [NodeConnectionTypes.Main],
+		outputs: [NodeConnectionTypes.Main],
 		credentials: [
 			{
 				name: 'ordifyApi',
@@ -312,10 +314,7 @@ export class Ordify implements INodeType {
 		const results: INodeExecutionData[] = [];
 
 		const creds = await this.getCredentials('ordifyApi');
-		const client = new OrdifyApiClient(this, {
-			baseUrl: String(creds.baseUrl),
-			apiKey: String(creds.apiKey),
-		});
+		const client = new OrdifyApiClient(this, String(creds.baseUrl));
 
 		for (let i = 0; i < items.length; i++) {
 			try {

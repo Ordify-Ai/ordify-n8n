@@ -53,9 +53,6 @@ export class OrdifyApi implements ICredentialType {
 			baseURL: '={{$credentials.baseUrl}}',
 			url: '/a2a/available',
 			method: 'GET',
-			headers: {
-				'api-key': '={{$credentials.apiKey}}',
-			},
 		},
 	};
 }

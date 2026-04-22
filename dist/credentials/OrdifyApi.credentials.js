@@ -43,9 +43,6 @@ class OrdifyApi {
                 baseURL: '={{$credentials.baseUrl}}',
                 url: '/a2a/available',
                 method: 'GET',
-                headers: {
-                    'api-key': '={{$credentials.apiKey}}',
-                },
             },
         };
     }

@@ -1,9 +1,10 @@
-import type { IDataObject, IExecuteFunctions, IHttpRequestOptions } from 'n8n-workflow';
-
-export interface OrdifyCredentials {
-	baseUrl: string;
-	apiKey: string;
-}
+import {
+	NodeApiError,
+	type IDataObject,
+	type IExecuteFunctions,
+	type IHttpRequestOptions,
+	type JsonObject,
+} from 'n8n-workflow';
 
 export interface OrdifyChatPayload extends IDataObject {
 	message: string;
@@ -18,16 +19,15 @@ export interface OrdifyChatPayload extends IDataObject {
 export class OrdifyApiClient {
 	constructor(
 		private readonly ctx: IExecuteFunctions,
-		private readonly creds: OrdifyCredentials,
+		private readonly baseUrl: string,
 	) {}
 
 	private async request<T = IDataObject>(method: 'GET' | 'POST', path: string, body?: IDataObject): Promise<T> {
-		const url = `${this.creds.baseUrl.replace(/\/+$/, '')}${path}`;
+		const url = `${this.baseUrl.replace(/\/+$/, '')}${path}`;
 		const options: IHttpRequestOptions = {
 			method,
 			url,
 			headers: {
-				'api-key': this.creds.apiKey,
 				'content-type': 'application/json',
 			},
 			json: true,
@@ -38,9 +38,12 @@ export class OrdifyApiClient {
 		}
 
 		try {
-			return (await this.ctx.helpers.httpRequest(options)) as T;
+			return (await this.ctx.helpers.httpRequestWithAuthentication.call(
+				this.ctx,
+				'ordifyApi',
+				options,
+			)) as T;
 		} catch (error: any) {
-			const statusCode = error?.response?.statusCode ?? error?.statusCode ?? 'unknown';
 			const responseBody = error?.response?.body;
 			const detail =
 				responseBody?.detail ??
@@ -48,17 +51,19 @@ export class OrdifyApiClient {
 				(typeof responseBody === 'string' ? responseBody : undefined) ??
 				error?.message ??
 				'Request failed';
-			throw new Error(`Ordify API ${method} ${path} failed (${statusCode}): ${detail}`);
+			throw new NodeApiError(this.ctx.getNode(), error as JsonObject, {
+				message: `Ordify API ${method} ${path} failed`,
+				description: String(detail),
+			});
 		}
 	}
 
 	private async requestRaw(method: 'GET' | 'POST', path: string, body?: IDataObject): Promise<string> {
-		const url = `${this.creds.baseUrl.replace(/\/+$/, '')}${path}`;
+		const url = `${this.baseUrl.replace(/\/+$/, '')}${path}`;
 		const options: IHttpRequestOptions = {
 			method,
 			url,
 			headers: {
-				'api-key': this.creds.apiKey,
 				'content-type': 'application/json',
 			},
 			json: false,
@@ -70,10 +75,13 @@ export class OrdifyApiClient {
 		}
 
 		try {
-			const raw = await this.ctx.helpers.httpRequest(options);
+			const raw = await this.ctx.helpers.httpRequestWithAuthentication.call(
+				this.ctx,
+				'ordifyApi',
+				options,
+			);
 			return typeof raw === 'string' ? raw : JSON.stringify(raw);
 		} catch (error: any) {
-			const statusCode = error?.response?.statusCode ?? error?.statusCode ?? 'unknown';
 			const responseBody = error?.response?.body;
 			const detail =
 				responseBody?.detail ??
@@ -81,7 +89,10 @@ export class OrdifyApiClient {
 				(typeof responseBody === 'string' ? responseBody : undefined) ??
 				error?.message ??
 				'Request failed';
-			throw new Error(`Ordify API ${method} ${path} failed (${statusCode}): ${detail}`);
+			throw new NodeApiError(this.ctx.getNode(), error as JsonObject, {
+				message: `Ordify API ${method} ${path} failed`,
+				description: String(detail),
+			});
 		}
 	}
 
